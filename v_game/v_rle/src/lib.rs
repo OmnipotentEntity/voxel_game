@@ -1,34 +1,39 @@
 use std::thread::current;
 
 pub struct RLE<T>
-    where T: Eq + PartialEq + Clone{
+where
+    T: Eq + PartialEq + Clone,
+{
     raw: Vec<(usize, T)>,
     pub raw_length: usize,
 }
 
 impl<T> RLE<T>
-    where T: Eq + PartialEq + Clone{
+where
+    T: Eq + PartialEq + Clone,
+{
     fn rle_compress<U>(data: U) -> (Vec<(usize, T)>, usize)
-    where U:Iterator<Item = T>{
+    where
+        U: Iterator<Item = T>,
+    {
         let mut size = 0;
         let mut count = 0;
         let mut current: Option<T> = None;
         let mut compressed = Vec::new();
-        for d in data{
-            match current{
+        for d in data {
+            match current {
                 Some(cur) => {
-                    if cur == d{
+                    if cur == d {
                         count += 1;
                         current = Some(cur.clone());
-                    }
-                    else{
+                    } else {
                         compressed.push((count, cur.clone()));
                         size += count;
                         count = 1;
                         current = Some(d.clone());
                     }
-                },
-                None =>{
+                }
+                None => {
                     current = Some(d.clone());
                     count += 1;
                 }
@@ -39,12 +44,12 @@ impl<T> RLE<T>
         (compressed, size)
     }
 
-    pub fn get(&self, index: usize) -> Result<T, RLEError>{
-        if index >= self.raw_length{
+    pub fn get(&self, index: usize) -> Result<T, RLEError> {
+        if index >= self.raw_length {
             return Err(RLEError::OutOfRange);
         }
         let mut current = 0;
-        for (num, data) in self.raw.iter(){
+        for (num, data) in self.raw.iter() {
             let next = current + *num;
             if next > index {
                 return Ok(data.clone());
@@ -54,16 +59,16 @@ impl<T> RLE<T>
         Ok(self.raw.last().unwrap().1.clone())
     }
 
-    pub fn set(&mut self, index: usize, item: &T) -> Result<(), RLEError>{
-        if index >= self.raw_length{
+    pub fn set(&mut self, index: usize, item: &T) -> Result<(), RLEError> {
+        if index >= self.raw_length {
             return Err(RLEError::OutOfRange);
         }
         let mut current = 0;
         let mut target_index = 0;
-        for (i, (num, data)) in self.raw.iter().enumerate(){
+        for (i, (num, data)) in self.raw.iter().enumerate() {
             let next = current + *num;
             //It's somewhere *within* the current item
-            if next > index{
+            if next > index {
                 target_index = i;
                 break;
             }
@@ -77,7 +82,10 @@ impl<T> RLE<T>
         if self.raw[target_index].1 != *item {
             self.raw[target_index].0 = target_place;
             if second_half > 0 {
-                self.raw.insert(target_index + 1, (second_half, self.raw[target_index].1.clone()));
+                self.raw.insert(
+                    target_index + 1,
+                    (second_half, self.raw[target_index].1.clone()),
+                );
             }
 
             self.raw.insert(target_index + 1, (1, item.clone()));
@@ -86,15 +94,15 @@ impl<T> RLE<T>
             }
         }
 
-        if target_index + 1 < self.raw.len(){
-            if self.raw[target_index + 1].1 == self.raw[target_index].1{
+        if target_index + 1 < self.raw.len() {
+            if self.raw[target_index + 1].1 == self.raw[target_index].1 {
                 self.raw[target_index].0 += self.raw[target_index + 1].0;
                 self.raw.remove(target_index + 1);
             }
         }
 
-        if target_index > 1 && target_index < self.raw.len(){
-            if self.raw[target_index - 1].1 == self.raw[target_index].1{
+        if target_index > 1 && target_index < self.raw.len() {
+            if self.raw[target_index - 1].1 == self.raw[target_index].1 {
                 self.raw[target_index].0 += self.raw[target_index - 1].0;
                 self.raw.remove(target_index - 1);
             }
@@ -102,12 +110,12 @@ impl<T> RLE<T>
         Ok(())
     }
 
-    pub fn compressed_len(&self) -> usize{
+    pub fn compressed_len(&self) -> usize {
         self.raw.len()
     }
 
-    pub fn iter(&self) -> RLEIterator<T>{
-        RLEIterator{
+    pub fn iter(&self) -> RLEIterator<T> {
+        RLEIterator {
             rle: self,
             index: 0,
             current: 0,
@@ -116,11 +124,13 @@ impl<T> RLE<T>
 }
 
 impl<T, U> From<U> for RLE<T>
-    where T: Eq + PartialEq + Clone,
-          U: Iterator<Item = T>{
-    fn from(data: U) -> Self{
+where
+    T: Eq + PartialEq + Clone,
+    U: Iterator<Item = T>,
+{
+    fn from(data: U) -> Self {
         let (v, s) = Self::rle_compress(data);
-        Self{
+        Self {
             raw: v,
             raw_length: s,
         }
@@ -128,21 +138,25 @@ impl<T, U> From<U> for RLE<T>
 }
 
 pub struct RLEIterator<'a, T>
-    where T: Eq + PartialEq + Clone{
+where
+    T: Eq + PartialEq + Clone,
+{
     rle: &'a RLE<T>,
     index: usize,
     current: usize,
 }
 
 impl<'a, T> Iterator for RLEIterator<'a, T>
-    where T: Eq + PartialEq + Clone{
+where
+    T: Eq + PartialEq + Clone,
+{
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.rle.raw.len(){
+        if self.index >= self.rle.raw.len() {
             return None;
         }
-        if self.current >= self.rle.raw[self.index].0{
+        if self.current >= self.rle.raw[self.index].0 {
             let item = self.rle.raw[self.index].1.clone();
             self.current = 0;
             self.index += 1;
@@ -153,7 +167,7 @@ impl<'a, T> Iterator for RLEIterator<'a, T>
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum RLEError{
+pub enum RLEError {
     OutOfRange,
 }
 
@@ -176,9 +190,10 @@ mod tests {
                 rle.set(place, &value);
                 assert_eq!(rle.get(place).unwrap(), value);
             }
-            let temp_ratio = ((rle.compressed_len() as f32) * (4.0 + 4.0)) / ((rle.raw_length as f32) * 4.0);
+            let temp_ratio =
+                ((rle.compressed_len() as f32) * (4.0 + 4.0)) / ((rle.raw_length as f32) * 4.0);
             ratio += temp_ratio;
-            if temp_ratio > 1.0{
+            if temp_ratio > 1.0 {
                 longer += 1;
             }
         }
